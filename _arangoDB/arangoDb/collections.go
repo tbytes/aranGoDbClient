@@ -11,27 +11,16 @@ import (
 	// "strings"
 )
 
-const (
-	colBaseURL = "/_api/collection"
-)
-
 //	Collection: A collection consists of documents. It is uniquely identified by 
 //	it's collection identifier. It also has a unique name.
 type collection struct {
-	_docCache     []document
-	_collectionID string
-	_name         string
-	_status       string
-	client        Client
-	_properties   properties
-	_db           *db
-}
-
-func addCollection(jsonBody string) (col *collection, err error) {
-	col = new(collection)
-	htp, err := col.Create(jsonBody)
-	log.Println(htp)
-	return
+	d               db
+	_docCache       []document
+	_collectionID   collectionID
+	_collectionName string
+	_name           string
+	_status         string
+	_properties     properties
 }
 
 type properties struct {
@@ -56,10 +45,11 @@ func (c *collection) Name() string {
 //	Creating and Deleting Collections
 
 //	POST /_api/collection  
-func (c *collection) Create(jsonBody string) (*http.Response, error) {
-	x, err := c.client.create(colBaseURL, jsonBody)
-	fmt.Println("x: ", x, err)
-	return x, err
+func (c *collection) Create(jsonBody string) error {
+	c.d.u.Path = colBaseURL + "/"
+	c.d.u.req.Method = "POST"
+	err := d.u.get()
+	return err
 }
 
 //	DELETE /_api/collection/collection-identifier
@@ -86,69 +76,116 @@ var status = map[string]string{
 //	Every other status indicates a corrupted collection.
 //	If the collection-identifier is unknown, then a HTTP 404 is returned.
 func (c *collection) Stats() (string, error) {
-	url := colBaseURL + "/" + c._collectionID
-	var v map[string]interface{}
-	if x, err := c.client.find(url); err != nil {
-		log.Println(err)
+	c.d.u.Path = colBaseURL + "/" + c._collectionID.ID()
+	c.d.u.req.Method = "GET"
+	var v interface{} // map[string]interface{}
+
+	if x, err := d.u.do(); err != nil {
 		y, err := ioutil.ReadAll(x.Body)
 		json.Unmarshal(y, &v)
-		fmt.Println(v)
+		fmt.Println(y, v)
 		return "1", err
 	}
+
 	return "2", nil
 }
 
 //	GET /_api/collection/collection-identifier/properties
 func (c *collection) Properties() (*http.Response, error) {
-	x, err := c.client.find(colBaseURL + "/" + c._collectionID + "/properties")
+	c.d.u.Path = colBaseURL + "/" + c._collectionID.ID() + "/properties"
+	c.d.u.req.Method = "GET"
+	x, err := c.d.u.do()
 	return x, err
 }
 
 //	GET /_api/collection/collection-identifier/count
 func (c *collection) Count() (*http.Response, error) {
-	x, err := c.client.find(colBaseURL + "/" + c._collectionID + "/count")
+	c.d.u.Path = colBaseURL + "/" + c._collectionID.ID() + "/count"
+	c.d.u.req.Method = "GET"
+	x, err := d.u.do()
 	return x, err
 }
 
 //	GET /_api/collection/collection-identifier/figures
 func (c *collection) Figures() (*http.Response, error) {
-	x, err := c.client.find(colBaseURL + "/" + c._collectionID + "/figures")
+	c.d.u.Path = colBaseURL + "/" + c._collectionID.ID() + "/figures"
+	c.d.u.get()
 	return x, err
 }
 
 //	GET /_api/collection/collection-identifier
 func (c *collection) Get() (*http.Response, error) {
-	x, err := c.client.find(colBaseURL + "/" + c._collectionID)
+	c.d.u.Path = colBaseURL + "/" + c._collectionID.ID()
+	c.d.u.req.Method = "GET"
+	x, err := d.u.do()
 	return x, err
 }
 
 //	GET /_api/collection/
-func (d *db) LoadCollections() (*http.Response, error) {
-	x, err := c.client.find(colBaseURL + "/")
+func (c *collection) LoadCollections() (*http.Response, error) {
+	c.d.u.Path = colBaseURL + "/"
+	c.d.u.req.Method = "GET"
+	x, err := d.u.do()
 	return x, err
+}
+
+/*
+HTTP/1.1 200 OK
+content-type: application/json; charset=utf-8
+
+{
+  "documents": [
+    "/document/6627082/29198126",
+    "/document/6627082/29329198",
+    "/document/6627082/29263662"
+  ]
+}
+*/
+
+//	Get /_api/document?collection=collection-identifier (Collection)
+func (c *collection) getDocs() (*http.Response, error) {
+	q := u.Query()
+	q.Set("collection", c._collectionID.ID())
+	c.d.u.RawQuery = q.Encode()
+	c.d.u.Path = docBaseURL
+	c.d.u.req.Method = "GET"
+	x, err := d.u.do()
+	return x, err
+
+}
+
+func (c *collection) GetDocs() {
+	r, err := d.getDocs()
+	e := json.Unmarshal(r.Body, &d.collections._docCache)
+	return err
 }
 
 //	Modifying a Collection
 //	PUT /_api/collection/collection-identifier/load
+func (c *collection) load(jsonBody string) (*http.Response, error) {
+	ul := colBaseURL + "/" + c._collectionID + "/load"
+	return x, err
+}
+
 func (c *collection) Load(jsonBody string) (*http.Response, error) {
-	x, err := c.client.update(colBaseURL+"/"+c._collectionID+"/load", jsonBody)
+	ul := colBaseURL + "/" + c._collectionID + "/load"
 	return x, err
 }
 
 //	PUT /_api/collection/collection-identifier/unload
 func (c *collection) UnLoad(jsonBody string) (*http.Response, error) {
-	x, err := c.client.update(colBaseURL+"/"+c._collectionID+"/unload", jsonBody)
+	ul := colBaseURL + "/" + c._collectionID + "/unload"
 	return x, err
 }
 
 //	PUT /_api/collection/collection-identifier/properties
 func (c *collection) UpdateProperties(jsonBody string) (*http.Response, error) {
-	x, err := c.client.update(colBaseURL+"/"+c._collectionID+"/properties", jsonBody)
+	ul := colBaseURL + "/" + c._collectionID + "/properties"
 	return x, err
 }
 
 //	PUT /_api/collection/collection-identifier/rename
 func (c *collection) Rename(jsonBody string) (*http.Response, error) {
-	x, err := c.client.update(colBaseURL+"/"+c._collectionID+"/rename", jsonBody)
+	ul := colBaseURL + "/" + c._collectionID + "/rename"
 	return x, err
 }
